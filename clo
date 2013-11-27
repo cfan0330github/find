@@ -1,4 +1,0 @@
-#! /bin/sh
-
-/bin/rm -f ./client
-gcc -g -o client client.c md5.c tools_ssllib.c
