@@ -1,0 +1,32 @@
++++ Statistics Dump +++ (1314334995)
+success 51131360
+referral 293259
+nxrrset 2681
+nxdomain 6246
+recursion 0
+failure 250283
+--- Statistics Dump --- (1314334995)
++++ Statistics Dump +++ (1314335380)
+success 51279998
+referral 294351
+nxrrset 2707
+nxdomain 6253
+recursion 0
+failure 250582
+--- Statistics Dump --- (1314335380)
++++ Statistics Dump +++ (1334737991)
+success 1805734229
+referral 77195082
+nxrrset 249200
+nxdomain 131052
+recursion 733052
+failure 4972299
+--- Statistics Dump --- (1334737991)
++++ Statistics Dump +++ (1346059500)
+success 1743272910
+referral 0
+nxrrset 106725
+nxdomain 323258
+recursion 0
+failure 7877733
+--- Statistics Dump --- (1346059500)

@@ -1,0 +1,4 @@
+#! /bin/sh
+
+gcc -g -o /tmp/bug server.c baiudnsmodule.c tools_ssllib.c md5.c cmdlog.c cron.c
+
