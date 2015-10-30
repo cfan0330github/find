@@ -116,9 +116,9 @@ if ($sth->rows == 1) {
         exit $ret;
 }
 
+#支持邮局域缺省账户
 my $dconf=$domainHome.'/.qmail-default';
 my $dfile;
-my @ds;
 open(DFILE,"<","$dconf");
 $dfile = <DFILE>;
 close DFILE;
