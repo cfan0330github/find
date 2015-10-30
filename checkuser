@@ -1,0 +1,130 @@
+#! /usr/bin/perl -w
+# vim: set cindent expandtab tabstop=4 shiftwidth=4:
+# $iGENUS: install-rpm/build/checkuser.pl,v 1.5.2.3 2008/09/01 02:45:17 wuqiong Exp $
+# Author: Wu Qiong <wuqiong@igenus.org>
+# CopyRight (c) 1999-2005 iGENUS.Org
+
+use strict;
+use DBI();
+use FileHandle;
+use constant RET_USER_EXIST        => 0x0001;
+use constant RET_PRIVILEGE_APF => 0x0010;               # 有权使用 APF anti spam gateway
+use constant FUNC_PRIVILEGE_APF => 0x0100;
+use constant VPOPMAIL_PATH      => '/home/vpopmail';
+use constant APF_ENABLED        => 1;           # disabled by set 0
+
+# unbuffer output
+select((select(STDOUT), $| = 1)[0]);
+select((select(STDIN), $| =1)[0]);
+
+$0 =~ s/.*\/(\S+)/$1/g;
+$_ = $ARGV[0];
+exit 0 if ( $#ARGV < 0 );
+exit 0 if (! /\@/i);
+
+my ($domain, $username);
+($username, $domain) = split(/\@/, $_);
+
+# 从 vpopmail/etc/vpopmail.mysql 文件中读出 mysql 账号配置
+
+my $mysql_conf = VPOPMAIL_PATH.'/etc/vpopmail.mysql';
+my (@temp, %cfg);
+
+open (CONFIG, "<$mysql_conf") || die "error open $mysql_conf";
+while (<CONFIG>) {
+        if (!/^\s*#|^\s*;|^\s*$|^\s*\n/) {
+                @temp = split(/\|/, $_);
+                $cfg{'host'} = $temp[0];
+                $cfg{'port'} = $temp[1];
+                $cfg{'user'} = $temp[2];
+                $cfg{'password'} = $temp[3];
+                $cfg{'database'} = $temp[4];
+        }
+}
+close CONFIG;
+my $ret = 0;
+my $dsn = "DBI:mysql:database=".$cfg{'database'}.";host=".$cfg{'host'};
+my $dbh = DBI->connect($dsn, $cfg{'user'}, $cfg{'password'});
+my $ref;
+my $domainHome;
+my $dom_func;
+
+# 查询别名域
+my $query = "SELECT domain FROM aliasdomain WHERE ".
+        " alias='$domain'";
+my $sth = $dbh->prepare($query);
+$sth->execute();
+if ($sth->rows == 1) {
+        $ref = $sth->fetchrow_hashref;
+        $domain = $ref->{'domain'};
+}
+
+# 查询域权限
+$query = "SELECT func_gid FROM admin WHERE ".
+        " domain='$domain'";
+$sth = $dbh->prepare($query);
+$sth->execute();
+if ($sth->rows == 1) {
+        $ref = $sth->fetchrow_hashref;
+        $dom_func = $ref->{'func_gid'};
+}
+
+# search in vpopmail table
+$query = "SELECT func_gid FROM vpopmail WHERE ".
+        " pw_domain='$domain' AND pw_name='$username'";
+$sth = $dbh->prepare($query);
+$sth->execute();
+if ($sth->rows == 1) {
+        $ret = $ret | RET_USER_EXIST;
+        $ref = $sth->fetchrow_hashref;
+        if (APF_ENABLED &&
+                $ref->{'func_gid'} & FUNC_PRIVILEGE_APF &&
+                $dom_func & FUNC_PRIVILEGE_APF) {
+                $ret = $ret | RET_PRIVILEGE_APF;
+        }
+        exit $ret;
+}
+
+# get domain homedir
+open DOMINFO, "-|", VPOPMAIL_PATH."/bin/vdominfo -d $domain" || exit 0;
+$domainHome = <DOMINFO>;
+close DOMINFO;
+$domainHome =~ /Invalid/ && exit 0;
+$domainHome =~ s/\n|\r//g;
+
+$username =~ s/(.*-return)-.*/$1/;
+$username =~ s/(.*-accept-).*/$1/;
+$username =~ s/(.*-reject-).*/$1/;
+$username =~ s/\./:/g;                          # . => : for qmail-local
+#print $username;
+# if exist .qmail-$username in domain home dir
+my @files;
+opendir(DIR, "$domainHome") || exit 0;
+@files = grep { /^\.qmail-$username/ } readdir(DIR);
+closedir(DIR);
+
+
+($#files >= 0) && exit RET_USER_EXIST;
+
+# search in valias table
+$query = "SELECT valias_line FROM valias WHERE ".
+        " domain='$domain' AND alias='$username'";
+$sth = $dbh->prepare($query);
+$sth->execute();
+if ($sth->rows == 1) {
+        $ret = $ret | RET_USER_EXIST;
+        exit $ret;
+}
+
+my $dconf=$domainHome.'/.qmail-default';
+my $dfile;
+my @ds;
+open(DFILE,"<","$dconf");
+$dfile = <DFILE>;
+close DFILE;
+if($dfile =~ /$domain/){
+        $ret = $ret | RET_USER_EXIST ;
+        exit $ret;
+}
+exit 0;
+# end of main
